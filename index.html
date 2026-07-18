@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SplitWise Ledger — Smart Expense Splitter &amp; Debt Simplifier</title>
+  <meta name="description" content="Split group expenses fairly and settle debts with the fewest possible payments using the Minimum Cash Flow algorithm." />
+
+  <!-- Font Awesome (icons) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- Google Fonts: Space Grotesk (display), Inter (body), JetBrains Mono (figures/ledger) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============================================================
+       TOAST NOTIFICATION CONTAINER (fixed, floats above everything)
+  ============================================================= -->
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ============================================================
+       NAVIGATION BAR
+  ============================================================= -->
+  <header class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a href="#" class="brand" data-nav="landing">
+        <span class="brand-mark">
+          <i class="fa-solid fa-diagram-project"></i>
+        </span>
+        <span class="brand-text">SplitWise<strong>Ledger</strong></span>
+      </a>
+
+      <nav class="nav-links" id="navLinks">
+        <button class="nav-link" data-nav="dashboard"><i class="fa-solid fa-gauge-high"></i><span>Dashboard</span></button>
+        <button class="nav-link" data-nav="members"><i class="fa-solid fa-users"></i><span>Members</span></button>
+        <button class="nav-link" data-nav="expenses"><i class="fa-solid fa-receipt"></i><span>Expenses</span></button>
+        <button class="nav-link" data-nav="settlements"><i class="fa-solid fa-arrow-right-arrow-left"></i><span>Settle Up</span></button>
+        <button class="nav-link" data-nav="history"><i class="fa-solid fa-clock-rotate-left"></i><span>History</span></button>
+        <button class="nav-link" data-nav="stats"><i class="fa-solid fa-chart-pie"></i><span>Statistics</span></button>
+      </nav>
+
+      <div class="navbar-actions">
+        <button class="icon-btn" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle theme">
+          <i class="fa-solid fa-moon"></i>
+        </button>
+        <button class="btn btn-primary btn-sm" id="getStartedBtn">
+          <i class="fa-solid fa-bolt"></i> Get Started
+        </button>
+        <button class="icon-btn nav-burger" id="navBurger" aria-label="Open menu">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================
+       VIEW: LANDING PAGE
+  ============================================================= -->
+  <main id="view-landing" class="view view-landing active">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-bg-glow"></div>
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <span class="eyebrow"><i class="fa-solid fa-sparkles"></i> Minimum Cash Flow Algorithm</span>
+          <h1 class="hero-title">
+            Split the bill.<br />
+            <span class="text-gradient">Settle in the fewest</span><br />
+            payments possible.
+          </h1>
+          <p class="hero-subtitle">
+            Track group expenses, split them fairly, and let the debt-simplification engine
+            collapse a tangle of IOUs into the smallest set of transactions — no backend,
+            no sign-up, your data stays in your browser.
+          </p>
+          <div class="hero-cta">
+            <button class="btn btn-primary btn-lg" id="heroStartBtn">
+              <i class="fa-solid fa-rocket"></i> Open Dashboard
+            </button>
+            <button class="btn btn-ghost btn-lg" id="heroDemoBtn">
+              <i class="fa-solid fa-play"></i> Load Demo Data
+            </button>
+          </div>
+          <div class="hero-trust">
+            <div class="trust-item"><i class="fa-solid fa-lock"></i> 100% local storage</div>
+            <div class="trust-item"><i class="fa-solid fa-code-branch"></i> Zero dependencies backend</div>
+            <div class="trust-item"><i class="fa-solid fa-gauge"></i> Instant settlement math</div>
+          </div>
+        </div>
+
+        <!-- SIGNATURE ELEMENT: live animated settlement graph -->
+        <div class="hero-visual">
+          <div class="ledger-card glass">
+            <div class="ledger-card-head">
+              <span><i class="fa-solid fa-diagram-project"></i> Settlement Preview</span>
+              <span class="badge badge-success">3 → 2 transactions</span>
+            </div>
+            <svg viewBox="0 0 360 260" class="flow-svg" id="heroFlowSvg">
+              <defs>
+                <linearGradient id="flowGradA" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#f43f5e"/>
+                  <stop offset="100%" stop-color="#8b5cf6"/>
+                </linearGradient>
+                <linearGradient id="flowGradB" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#06b6d4"/>
+                  <stop offset="100%" stop-color="#8b5cf6"/>
+                </linearGradient>
+                <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path d="M0,0 L8,3 L0,6 Z" fill="#8b5cf6"/>
+                </marker>
+              </defs>
+
+              <!-- Node: A -->
+              <circle cx="60" cy="60" r="34" class="flow-node flow-node-debtor"/>
+              <text x="60" y="55" class="flow-label">A</text>
+              <text x="60" y="74" class="flow-sub">owes ₹700</text>
+
+              <!-- Node: B -->
+              <circle cx="60" cy="200" r="34" class="flow-node flow-node-debtor"/>
+              <text x="60" y="195" class="flow-label">B</text>
+              <text x="60" y="214" class="flow-sub">owes ₹300</text>
+
+              <!-- Node: C -->
+              <circle cx="290" cy="130" r="40" class="flow-node flow-node-creditor"/>
+              <text x="290" y="124" class="flow-label">C</text>
+              <text x="290" y="144" class="flow-sub">gets ₹1000</text>
+
+              <!-- Flow lines -->
+              <path d="M92,70 C160,90 210,100 250,120" class="flow-path flow-path-a" marker-end="url(#arrowHead)"/>
+              <path d="M92,190 C160,170 210,155 250,138" class="flow-path flow-path-b" marker-end="url(#arrowHead)"/>
+
+              <text x="160" y="82" class="flow-amount">₹700</text>
+              <text x="160" y="188" class="flow-amount">₹300</text>
+            </svg>
+            <div class="ledger-card-foot">
+              <div class="mini-row"><i class="fa-solid fa-check-circle"></i> A pays C <strong>₹700</strong></div>
+              <div class="mini-row"><i class="fa-solid fa-check-circle"></i> B pays C <strong>₹300</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURE STRIP -->
+    <section class="features">
+      <div class="section-head">
+        <span class="eyebrow"><i class="fa-solid fa-layer-group"></i> Everything a shared ledger needs</span>
+        <h2>Built for roommates, trips, and teams</h2>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-violet"><i class="fa-solid fa-users-line"></i></div>
+          <h3>Members</h3>
+          <p>Add everyone in the group once, then split any expense across whoever was involved.</p>
+        </div>
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-rose"><i class="fa-solid fa-receipt"></i></div>
+          <h3>Categorized Expenses</h3>
+          <p>Log food, travel, rent, and more — filter and search your entire spending history instantly.</p>
+        </div>
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-emerald"><i class="fa-solid fa-shuffle"></i></div>
+          <h3>Debt Simplification</h3>
+          <p>Minimum Cash Flow algorithm reduces a web of debts to the fewest possible payments.</p>
+        </div>
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-cyan"><i class="fa-solid fa-chart-pie"></i></div>
+          <h3>Visual Insights</h3>
+          <p>Charts break down spending by category and by member, so patterns jump out immediately.</p>
+        </div>
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-amber"><i class="fa-solid fa-file-export"></i></div>
+          <h3>Export &amp; Import</h3>
+          <p>Back up your whole ledger to JSON, or restore it on any device — no account required.</p>
+        </div>
+        <div class="feature-card glass hover-lift">
+          <div class="feature-icon icon-indigo"><i class="fa-solid fa-moon"></i></div>
+          <h3>Dark Mode</h3>
+          <p>A carefully tuned light and dark theme, easy on the eyes at 2am when splitting the trip bill.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="how-it-works">
+      <div class="section-head">
+        <span class="eyebrow"><i class="fa-solid fa-route"></i> Three steps</span>
+        <h2>From receipts to resolved balances</h2>
+      </div>
+      <div class="steps-row">
+        <div class="step-card glass">
+          <div class="step-num">1</div>
+          <h3>Add your group</h3>
+          <p>Create members for everyone sharing costs — a trip, a flat, a project.</p>
+        </div>
+        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="step-card glass">
+          <div class="step-num">2</div>
+          <h3>Log expenses</h3>
+          <p>Enter who paid, how much, the category, and who the cost should be split between.</p>
+        </div>
+        <div class="step-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+        <div class="step-card glass">
+          <div class="step-num">3</div>
+          <h3>Settle up</h3>
+          <p>The simplifier tells everyone exactly who to pay, minimizing the number of transfers.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER CTA -->
+    <section class="cta-banner glass">
+      <h2>Stop doing the maths in a group chat.</h2>
+      <p>Your ledger lives entirely in this browser — open the dashboard and add your first member.</p>
+      <button class="btn btn-primary btn-lg" id="ctaStartBtn"><i class="fa-solid fa-arrow-right"></i> Open Dashboard</button>
+    </section>
+
+    <footer class="site-footer">
+      <p>SplitWise Ledger — built with HTML, CSS &amp; vanilla JavaScript. Your data never leaves your device.</p>
+    </footer>
+  </main>
+
+  <!-- ============================================================
+       VIEW: DASHBOARD
+  ============================================================= -->
+  <main id="view-dashboard" class="view">
+    <div class="view-container">
+
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-gauge-high"></i> Dashboard</h1>
+          <p class="view-subtitle">A live snapshot of your group's shared finances.</p>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-secondary" id="exportBtn"><i class="fa-solid fa-file-export"></i> Export JSON</button>
+          <label class="btn btn-secondary" for="importFileInput"><i class="fa-solid fa-file-import"></i> Import JSON</label>
+          <input type="file" id="importFileInput" accept="application/json" hidden />
+          <button class="btn btn-primary" id="dashAddExpenseBtn"><i class="fa-solid fa-plus"></i> Add Expense</button>
+        </div>
+      </div>
+
+      <!-- SUMMARY CARDS -->
+      <div class="stat-cards">
+        <div class="stat-card glass hover-lift">
+          <div class="stat-icon icon-violet"><i class="fa-solid fa-sack-dollar"></i></div>
+          <div class="stat-body">
+            <span class="stat-label">Total Group Spend</span>
+            <span class="stat-value" id="statTotalSpend">₹0</span>
+          </div>
+        </div>
+        <div class="stat-card glass hover-lift">
+          <div class="stat-icon icon-cyan"><i class="fa-solid fa-receipt"></i></div>
+          <div class="stat-body">
+            <span class="stat-label">Expenses Logged</span>
+            <span class="stat-value" id="statExpenseCount">0</span>
+          </div>
+        </div>
+        <div class="stat-card glass hover-lift">
+          <div class="stat-icon icon-emerald"><i class="fa-solid fa-users"></i></div>
+          <div class="stat-body">
+            <span class="stat-label">Active Members</span>
+            <span class="stat-value" id="statMemberCount">0</span>
+          </div>
+        </div>
+        <div class="stat-card glass hover-lift">
+          <div class="stat-icon icon-rose"><i class="fa-solid fa-arrow-right-arrow-left"></i></div>
+          <div class="stat-body">
+            <span class="stat-label">Pending Settlements</span>
+            <span class="stat-value" id="statPendingSettlements">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <!-- Charts -->
+        <div class="dash-panel glass">
+          <div class="panel-head">
+            <h3><i class="fa-solid fa-chart-pie"></i> Spending by Category</h3>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="categoryChart"></canvas>
+          </div>
+          <div class="empty-state" id="categoryChartEmpty" hidden>
+            <i class="fa-solid fa-chart-pie"></i>
+            <p>No expenses yet. Add one to see the breakdown.</p>
+          </div>
+        </div>
+
+        <div class="dash-panel glass">
+          <div class="panel-head">
+            <h3><i class="fa-solid fa-chart-column"></i> Spend per Member</h3>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="memberChart"></canvas>
+          </div>
+          <div class="empty-state" id="memberChartEmpty" hidden>
+            <i class="fa-solid fa-chart-column"></i>
+            <p>No expenses yet. Add one to see who's spending.</p>
+          </div>
+        </div>
+
+        <!-- Recent activity -->
+        <div class="dash-panel glass dash-panel-wide">
+          <div class="panel-head">
+            <h3><i class="fa-solid fa-clock-rotate-left"></i> Recent Expenses</h3>
+            <button class="link-btn" data-nav="expenses">View all <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+          <div id="recentExpensesList" class="mini-list"></div>
+          <div class="empty-state" id="recentExpensesEmpty" hidden>
+            <i class="fa-solid fa-receipt"></i>
+            <p>No expenses logged yet.</p>
+            <button class="btn btn-primary btn-sm" id="emptyAddExpenseBtn"><i class="fa-solid fa-plus"></i> Add your first expense</button>
+          </div>
+        </div>
+
+        <!-- Who owes what -->
+        <div class="dash-panel glass dash-panel-wide">
+          <div class="panel-head">
+            <h3><i class="fa-solid fa-scale-balanced"></i> Net Balances</h3>
+            <button class="link-btn" data-nav="settlements">Settle up <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+          <div id="netBalancesList" class="mini-list"></div>
+          <div class="empty-state" id="netBalancesEmpty" hidden>
+            <i class="fa-solid fa-scale-balanced"></i>
+            <p>Balances will appear once you log expenses.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VIEW: MEMBERS
+  ============================================================= -->
+  <main id="view-members" class="view">
+    <div class="view-container">
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-users"></i> Members</h1>
+          <p class="view-subtitle">Everyone sharing expenses in this ledger.</p>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-primary" id="addMemberBtn"><i class="fa-solid fa-user-plus"></i> Add Member</button>
+        </div>
+      </div>
+
+      <div id="membersGrid" class="members-grid"></div>
+
+      <div class="empty-state empty-state-lg" id="membersEmpty" hidden>
+        <i class="fa-solid fa-user-group"></i>
+        <h3>No members yet</h3>
+        <p>Add the people who will share expenses to get started.</p>
+        <button class="btn btn-primary" id="emptyAddMemberBtn"><i class="fa-solid fa-user-plus"></i> Add your first member</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VIEW: EXPENSES
+  ============================================================= -->
+  <main id="view-expenses" class="view">
+    <div class="view-container">
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-receipt"></i> Expenses</h1>
+          <p class="view-subtitle">Every cost logged for the group, searchable and filterable.</p>
+        </div>
+        <div class="view-header-actions">
+          <button class="btn btn-primary" id="addExpenseBtn"><i class="fa-solid fa-plus"></i> Add Expense</button>
+        </div>
+      </div>
+
+      <div class="filter-bar glass">
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="expenseSearchInput" placeholder="Search expenses by title or notes..." />
+        </div>
+        <select id="filterCategory" class="select-input">
+          <option value="">All Categories</option>
+          <option value="Food">🍔 Food</option>
+          <option value="Travel">✈️ Travel</option>
+          <option value="Rent">🏠 Rent</option>
+          <option value="Utilities">💡 Utilities</option>
+          <option value="Entertainment">🎬 Entertainment</option>
+          <option value="Shopping">🛍️ Shopping</option>
+          <option value="Health">💊 Health</option>
+          <option value="Other">📦 Other</option>
+        </select>
+        <select id="filterMember" class="select-input">
+          <option value="">All Members</option>
+        </select>
+        <select id="sortExpenses" class="select-input">
+          <option value="date-desc">Newest first</option>
+          <option value="date-asc">Oldest first</option>
+          <option value="amount-desc">Amount: High to Low</option>
+          <option value="amount-asc">Amount: Low to High</option>
+        </select>
+      </div>
+
+      <div class="table-wrap glass">
+        <table class="data-table" id="expensesTable">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Paid By</th>
+              <th>Split Between</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expensesTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="empty-state empty-state-lg" id="expensesEmpty" hidden>
+        <i class="fa-solid fa-receipt"></i>
+        <h3>No expenses found</h3>
+        <p>Try adjusting your filters, or add a new expense.</p>
+        <button class="btn btn-primary" id="emptyAddExpenseBtn2"><i class="fa-solid fa-plus"></i> Add Expense</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VIEW: SETTLEMENTS (Debt Simplification)
+  ============================================================= -->
+  <main id="view-settlements" class="view">
+    <div class="view-container">
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-arrow-right-arrow-left"></i> Settle Up</h1>
+          <p class="view-subtitle">Simplified using the Minimum Cash Flow algorithm — the fewest possible payments.</p>
+        </div>
+      </div>
+
+      <div class="settle-summary glass">
+        <div class="settle-summary-item">
+          <span class="stat-label">Suggested Transactions</span>
+          <span class="stat-value" id="settleTxnCount">0</span>
+        </div>
+        <div class="settle-summary-item">
+          <span class="stat-label">Total to Move</span>
+          <span class="stat-value" id="settleTotalAmount">₹0</span>
+        </div>
+      </div>
+
+      <div id="settlementsList" class="settlements-list"></div>
+
+      <div class="empty-state empty-state-lg" id="settlementsEmpty" hidden>
+        <i class="fa-solid fa-champagne-glasses"></i>
+        <h3>Everyone is settled up!</h3>
+        <p>No outstanding balances right now. Add an expense to get started again.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VIEW: HISTORY (Settled transactions)
+  ============================================================= -->
+  <main id="view-history" class="view">
+    <div class="view-container">
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-clock-rotate-left"></i> Transaction History</h1>
+          <p class="view-subtitle">A record of every settlement marked as paid.</p>
+        </div>
+      </div>
+
+      <div id="historyList" class="settlements-list"></div>
+
+      <div class="empty-state empty-state-lg" id="historyEmpty" hidden>
+        <i class="fa-solid fa-box-archive"></i>
+        <h3>No settled transactions yet</h3>
+        <p>Once you mark a settlement as paid in "Settle Up", it will show here.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       VIEW: STATISTICS
+  ============================================================= -->
+  <main id="view-stats" class="view">
+    <div class="view-container">
+      <div class="view-header">
+        <div>
+          <h1><i class="fa-solid fa-chart-pie"></i> Member Statistics</h1>
+          <p class="view-subtitle">Spending, owing, and receiving broken down per member.</p>
+        </div>
+      </div>
+
+      <div id="statsGrid" class="stats-grid"></div>
+
+      <div class="empty-state empty-state-lg" id="statsEmpty" hidden>
+        <i class="fa-solid fa-chart-pie"></i>
+        <h3>No statistics yet</h3>
+        <p>Add members and expenses to see individual breakdowns.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================================
+       MODAL: ADD / EDIT MEMBER
+  ============================================================= -->
+  <div class="modal-overlay" id="memberModalOverlay">
+    <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="memberModalTitle">
+      <div class="modal-head">
+        <h3 id="memberModalTitle"><i class="fa-solid fa-user-plus"></i> Add Member</h3>
+        <button class="icon-btn modal-close" data-close="memberModalOverlay" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="memberForm" class="modal-body" novalidate>
+        <input type="hidden" id="memberId" />
+        <div class="form-group">
+          <label for="memberName">Full Name</label>
+          <input type="text" id="memberName" placeholder="e.g. Priya Sharma" required maxlength="40" />
+          <span class="field-error" id="memberNameError"></span>
+        </div>
+        <div class="form-group">
+          <label for="memberEmail">Email <span class="optional">(optional)</span></label>
+          <input type="email" id="memberEmail" placeholder="e.g. priya@example.com" maxlength="60" />
+          <span class="field-error" id="memberEmailError"></span>
+        </div>
+        <div class="form-group">
+          <label>Avatar Color</label>
+          <div class="color-swatches" id="memberColorSwatches"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close="memberModalOverlay">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: ADD / EDIT EXPENSE
+  ============================================================= -->
+  <div class="modal-overlay" id="expenseModalOverlay">
+    <div class="modal glass modal-lg" role="dialog" aria-modal="true" aria-labelledby="expenseModalTitle">
+      <div class="modal-head">
+        <h3 id="expenseModalTitle"><i class="fa-solid fa-receipt"></i> Add Expense</h3>
+        <button class="icon-btn modal-close" data-close="expenseModalOverlay" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="expenseForm" class="modal-body" novalidate>
+        <input type="hidden" id="expenseId" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expenseTitle">Title</label>
+            <input type="text" id="expenseTitle" placeholder="e.g. Dinner at Cafe Napoli" required maxlength="60" />
+            <span class="field-error" id="expenseTitleError"></span>
+          </div>
+          <div class="form-group">
+            <label for="expenseAmount">Amount (₹)</label>
+            <input type="number" id="expenseAmount" placeholder="0.00" min="0.01" step="0.01" required />
+            <span class="field-error" id="expenseAmountError"></span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="expenseCategory">Category</label>
+            <select id="expenseCategory" required>
+              <option value="Food">🍔 Food</option>
+              <option value="Travel">✈️ Travel</option>
+              <option value="Rent">🏠 Rent</option>
+              <option value="Utilities">💡 Utilities</option>
+              <option value="Entertainment">🎬 Entertainment</option>
+              <option value="Shopping">🛍️ Shopping</option>
+              <option value="Health">💊 Health</option>
+              <option value="Other">📦 Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="expenseDate">Date</label>
+            <input type="date" id="expenseDate" required />
+            <span class="field-error" id="expenseDateError"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expensePaidBy">Paid By</label>
+          <select id="expensePaidBy" required></select>
+          <span class="field-error" id="expensePaidByError"></span>
+        </div>
+
+        <div class="form-group">
+          <label>Split Between <span class="optional">(select who shares this cost)</span></label>
+          <div class="split-controls">
+            <button type="button" class="link-btn" id="selectAllMembersBtn">Select all</button>
+            <button type="button" class="link-btn" id="clearAllMembersBtn">Clear all</button>
+          </div>
+          <div id="expenseMembersChecklist" class="checklist"></div>
+          <span class="field-error" id="expenseMembersError"></span>
+        </div>
+
+        <div class="split-preview" id="splitPreview" hidden>
+          <i class="fa-solid fa-calculator"></i>
+          <span id="splitPreviewText"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="expenseNotes">Notes <span class="optional">(optional)</span></label>
+          <textarea id="expenseNotes" placeholder="Any extra details..." maxlength="200" rows="2"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close="expenseModalOverlay">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: CONFIRM DELETE (generic, reused everywhere)
+  ============================================================= -->
+  <div class="modal-overlay" id="confirmModalOverlay">
+    <div class="modal glass modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+      <div class="modal-head">
+        <h3 id="confirmModalTitle"><i class="fa-solid fa-triangle-exclamation"></i> Are you sure?</h3>
+        <button class="icon-btn modal-close" data-close="confirmModalOverlay" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmModalText">This action cannot be undone.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close="confirmModalOverlay">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmModalActionBtn"><i class="fa-solid fa-trash"></i> Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: MEMBER DETAIL (stats + expenses for one member)
+  ============================================================= -->
+  <div class="modal-overlay" id="memberDetailModalOverlay">
+    <div class="modal glass modal-lg" role="dialog" aria-modal="true" aria-labelledby="memberDetailTitle">
+      <div class="modal-head">
+        <h3 id="memberDetailTitle"><i class="fa-solid fa-user"></i> Member Detail</h3>
+        <button class="icon-btn modal-close" data-close="memberDetailModalOverlay" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="memberDetailBody"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
